@@ -37,7 +37,7 @@ function gengcode (form) {
         document.forms['form1']['textarea'].value = '';
         return;
     }
-    var START_Y = (BED_Y - PRINT_SIZE_Y) / 2;
+    var START_Y = ((BED_Y - PRINT_SIZE_Y) / 2).toFixed(2);
 
     // Convert speeds from mm/s to mm/min if needed
     if(document.getElementById('MM_S').checked) {
