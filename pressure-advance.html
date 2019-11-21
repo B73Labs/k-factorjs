@@ -1,0 +1,320 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Pressure Advance based on K-Factor Linear Advance Test Pattern Generator</title>
+    <script>
+function gengcode (form) {
+
+    var FILAMENT_DIAMETER = parseFloat(document.forms['form1']['FIL_DIA'].value);
+    var NOZZLE_DIAMETER = parseFloat(document.forms['form1']['NOZ_DIA'].value);
+    var NOZZLE_TEMP = parseInt(document.forms['form1']['NOZZLE_TEMP'].value);
+    var NOZZLE_LINE_RATIO = parseFloat(document.forms['form1']['NOZ_LIN_R'].value);
+    var BED_TEMP = parseInt(document.forms['form1']['BED_TEMP'].value);
+    var SPEED_SLOW = parseInt(document.forms['form1']['SLOW_SPEED'].value);
+    var SPEED_FAST = parseInt(document.forms['form1']['FAST_SPEED'].value);
+    var SPEED_MOVE = parseInt(document.forms['form1']['MOVE_SPEED'].value);
+    var RETRACT_DIST = parseFloat(document.forms['form1']['RETRACTION'].value);
+    var BED_X = parseInt(document.forms['form1']['BEDSIZE_X'].value);
+    var BED_Y = parseInt(document.forms['form1']['BEDSIZE_Y'].value);
+    var HEIGHT_LAYER = parseFloat(document.forms['form1']['LAYER_HEIGHT'].value);
+    var EXT_MULT = parseFloat(document.forms['form1']['EXTRUSION_MULT'].value);
+    var START_PA = parseFloat(document.forms['form1']['PA_START'].value);
+    var END_PA = parseFloat(document.forms['form1']['PA_END'].value);
+    var STEP_PA = parseFloat(document.forms['form1']['PA_STEP'].value);
+    var RANGE_PA =  END_PA - START_PA;
+
+    // Check if the Test Pattern size does not exceed the Y Bed Size
+    var PRINT_SIZE_Y = RANGE_PA / STEP_PA * 5 + 25;
+
+    if (PRINT_SIZE_Y > BED_Y - 20) {
+        var NUM_STEPS = RANGE_PA / STEP_PA;
+        var msg = "Your Pressure Advance settings exceed your Y bed size. Check Start / End / Steps for the Pressure Advance";
+        var MAX_STEPS = (BED_Y - 20) / 5 - 1;
+        msg += "\n";
+        msg += "MAX_STEPS: " + MAX_STEPS + ", current NUM_STEPS: "+ NUM_STEPS.toFixed(1);
+        alert(msg);
+        document.forms['form1']['textarea'].value = '';
+        return;
+    }
+    var START_Y = (BED_Y - PRINT_SIZE_Y) / 2;
+
+    // Convert speeds from mm/s to mm/min if needed
+    if(document.getElementById('MM_S').checked) {
+        SPEED_SLOW = SPEED_SLOW * 60;
+        SPEED_FAST = SPEED_FAST * 60;
+        SPEED_MOVE = SPEED_MOVE * 60;
+    }
+
+    //Set the extrusion parameters
+    var EXTRUSION_RATIO = NOZZLE_DIAMETER * NOZZLE_LINE_RATIO * HEIGHT_LAYER / (Math.pow(FILAMENT_DIAMETER / 2,2) * Math.PI);
+    var EXT_20 = roundNumber(EXTRUSION_RATIO * EXT_MULT * 20, 5);
+    var EXT_40 = roundNumber(EXTRUSION_RATIO * EXT_MULT * 40, 5);
+
+    document.forms['form1']['textarea'].value = '';
+    document.forms['form1']['textarea'].value =    '; Pressure Advance Test\n' +
+                                                    ';\n' +
+                                                    '; Created: ' + new Date() + '\n' +
+                                                    '; Settings:\n' +
+                                                    '; Filament Diameter = ' + FILAMENT_DIAMETER + '\n' +
+                                                    '; Nozzle Diameter = ' + NOZZLE_DIAMETER + '\n' +
+                                                    '; Nozzle Temperature = ' + NOZZLE_TEMP + '\n' +
+                                                    '; Nozzle / Line Ratio = ' + NOZZLE_LINE_RATIO + '\n' +
+                                                    '; Bed Temperature = ' +BED_TEMP + '\n' +
+                                                    '; Slow Printing Speed = ' + SPEED_SLOW + '\n' +
+                                                    '; Fast Printing Speed = ' + SPEED_FAST + '\n' +
+                                                    '; Movement Speed = ' + SPEED_MOVE + '\n' +
+                                                    '; Use UBL = ' + (document.getElementById('USE_UBL').checked ? "true" : "false") + '\n' +
+                                                    '; Retraction Distance = ' + RETRACT_DIST + '\n' +
+                                                    '; Bed Size X = ' + BED_X + '\n' +
+                                                    '; Bed Size Y = ' + BED_Y + '\n' +
+                                                    '; Layer Height = ' + HEIGHT_LAYER + '\n' +
+                                                    '; Extrusion Multiplier = ' + EXT_MULT + '\n' +
+                                                    '; Starting Value Pressure Advance = ' + START_PA + '\n' +
+                                                    '; Ending value Pressure Advance = ' + END_PA + '\n' +
+                                                    '; Pressure Advance Stepping = ' + STEP_PA + '\n' +
+                                                    ';\n' +
+                                                    'G28 ; home all axes\n' +
+                                                    'M190 S' + BED_TEMP + ' ; set and wait for bed temp\n' +
+                                                    'M104 S' + NOZZLE_TEMP + ' ; set nozzle temp and continue\n';
+
+    if(document.getElementById('USE_UBL').checked) {
+    document.forms['form1']['textarea'].value +=    'G29 ; execute bed automatic levelling compensation\n';
+    }
+
+    document.forms['form1']['textarea'].value +=    'M109 S' + NOZZLE_TEMP + ' ; block waiting for nozzle temp\n' +
+                                                    'G21 ; set units to millimetres\n' +
+                                                    'M204 S500 ; lower acceleration to 500mm/s2 during the test\n' +
+                                                    'M83 ; use relative distances for extrusion\n' +
+                                                    'G90 ; use absolute coordinates\n' +
+                                                    ';\n' +
+                                                    '; go to layer height and prime nozzle on a line to the left\n' +
+                                                    ';\n' +
+                                                    'G1 X20 Y' + START_Y + ' F' + SPEED_MOVE + '\n' +
+                                                    'G1 Z' + HEIGHT_LAYER + ' F' + SPEED_SLOW + '\n' +
+                                                    'G1 X20 Y' + (START_Y + 100) + ' E10' + ' F' + SPEED_SLOW + ' ; extrude some to start clean\n' +
+                                                    'G1 E-' + RETRACT_DIST + '\n' +
+                                                    ';\n' +
+                                                    '; start the test (all values are relative coordinates)\n' +
+                                                    ';\n' +
+                                                    'G1 X' + ((BED_X - 80) / 2) + ' Y' + START_Y + ' F' + SPEED_MOVE + ' ; move to pattern start\n' +
+                                                    'G91 ; use relative coordinates\n' +
+                                                    '; initial Klipper Pressure Advance setup\n'
+                                                    'SET_VELOCITY_LIMIT SQUARE_CORNER_VELOCITY=1 ACCEL=500\n' +
+                                                    'SET_PRESSURE_ADVANCE ADVANCE_LOOKAHEAD_TIME=0\n';
+
+
+    console.clear();
+    for (i = START_PA; i <= END_PA; i = i + STEP_PA ) {
+        // console.log(i.toFixed(3));
+        document.forms['form1']['textarea'].value += 'SET_PRESSURE_ADVANCE ADVANCE=' + i.toFixed(3) + ' ; set Pressure Advance\n' +
+                                                     'G1 E' + RETRACT_DIST + '\n' +
+                                                     'G1 X20 Y0 E' + EXT_20 + ' F' + SPEED_SLOW + '\n' +
+                                                     'G1 X40 Y0 E' + EXT_40 + ' F' + SPEED_FAST + '\n' +
+                                                     'G1 X20 Y0 E' + EXT_20 + ' F' + SPEED_SLOW + '\n' +
+                                                     'G1 E-' + RETRACT_DIST + '\n' +
+                                                     'G1 X-80 Y5 F' + SPEED_MOVE + '\n';
+    }
+    document.forms['form1']['textarea'].value +=    ';\n' +
+                                                    '; mark the test area for reference\n' +
+                                                    ';\n' +
+                                                    'G1 X20 Y0 F' + SPEED_MOVE + '\n' +
+                                                    'G1 E' + RETRACT_DIST + '\n' +
+                                                    'G1 X0 Y20 E' + EXT_20 + ' F' + SPEED_SLOW + '\n' +
+                                                    'G1 E-' + RETRACT_DIST + '\n' +
+                                                    'G1 X40 Y-20 F' + SPEED_MOVE + '\n' +
+                                                    'G1 E' + RETRACT_DIST + '\n' +
+                                                    'G1 X0 Y20 E' + EXT_20 + ' F' + SPEED_SLOW + '\n' +
+                                                    'G1 E-' + RETRACT_DIST + '\n' +
+                                                    ';\n' +
+                                                    '; finish\n' +
+                                                    ';\n' +
+                                                    'G4 ; wait\n' +
+                                                    'M104 S0 ; turn off hotend\n' +
+                                                    'M140 S0 ; turn off bed\n' +
+                                                    'G90 ; use absolute coordinates\n' +
+                                                    'G1 Z30 Y200 F' + SPEED_MOVE + ' ; move away from the print\n' +
+                                                    'M84 ; disable motors\n'
+                                                    ';';
+}
+// https://stackoverflow.com/questions/21479107/saving-html5-textarea-contents-to-file
+function saveTextAsFile(form) {
+    var textToWrite = document.getElementById('textarea').value;
+    var textFileAsBlob = new Blob([ textToWrite ], { type: 'text/plain' });
+    var fileNameToSaveAs = "pressure-advance.gcode";
+
+    var downloadLink = document.createElement("a");
+    downloadLink.download = fileNameToSaveAs;
+    downloadLink.innerHTML = "Download File";
+    if (window.webkitURL != null) {
+        // Chrome allows the link to be clicked without actually adding it to the DOM.
+        downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+    } else {
+        // Firefox requires the link to be added to the DOM before it can be clicked.
+        downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+        downloadLink.onclick = destroyClickedElement;
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+    }
+
+    downloadLink.click();
+}
+function destroyClickedElement(event) {
+    // remove the link from the DOM
+    document.body.removeChild(event.target);
+}
+
+// https://stackoverflow.com/questions/11832914/round-to-at-most-2-decimal-places-only-if-necessary
+function roundNumber(num, scale) {
+  if(!("" + num).includes("e")) {
+    return +(Math.round(num + "e+" + scale)  + "e-" + scale);
+  } else {
+    var arr = ("" + num).split("e");
+    var sig = ""
+    if(+arr[1] + scale > 0) {
+      sig = "+";
+    }
+    return +(Math.round(+arr[0] + "e" + sig + (+arr[1] + scale)) + "e-" + scale);
+  }
+}
+
+
+    </script>
+    <noscript>You have to activate javascript for this to work</noscript>
+</head>
+<body>
+<form id="form1" name="form1" method="get">
+    <table width="90%" border="1">
+        <tbody>
+        <tr>
+            <td width="62%"><strong>Settings: </strong></td>
+            <td width="38%"><label for="textarea"><strong>GCode:</strong><br></label></td>
+        </tr>
+        <tr>
+            <td>
+                <table width="100%" border="1">
+                    <tbody>
+                    <tr>
+                        <td valign="middle"><label for="FIL_DIA">Filament Diameter:</label></td>
+                        <td valign="middle"><input type="number" name="FIL_DIA" id="FIL_DIA" value="1.75"></td>
+                        <td valign="middle">Diameter of the used filament in mm</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="NOZ_DIA">Nozzle Diameter:</label></td>
+                        <td valign="middle"><input type="number" name="NOZ_DIA" id="NOZ_DIA" value="0.4"></td>
+                        <td valign="middle">Diameter of the nozzle in mm</td>
+                    </tr>
+                    <tr>
+                        <td width="20%" valign="middle"><label for="NOZZLE_TEMP">Nozzle Temperature:</label></td>
+                        <td width="14%" valign="middle"><input type="number" name="NOZZLE_TEMP" id="NOZZLE_TEMP"
+                                                               value="205"></td>
+                        <td width="66%" valign="middle">Nozzle Temperature in °C</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="NOZ_LIN_R">Nozze Line Ratio:</label></td>
+                        <td valign="middle"><input name="NOZ_LIN_R" type="number" id="NOZ_LIN_R" value="1.2"></td>
+                        <td valign="middle">Ratio between nozzle diameter and extruded line width. Should be between
+                            1.05 and 1.2
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="BED_TEMP">Bed Temperature:</label></td>
+                        <td valign="middle"><input type="number" name="BED_TEMP" id="BED_TEMP" value="60"></td>
+                        <td valign="middle">Bed Temperature in °C</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="MM_S">Use mm/s for speeds: </label></td>
+                        <td valign="middle"><input type="checkbox" name="MM_S" id="MM_S" checked></td>
+                        <td valign="middle">Use mm/s instead of mm/min</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="SLOW_SPEED">Slow printing speed:</label></td>
+                        <td valign="middle"><input type="number" name="SLOW_SPEED" id="SLOW_SPEED" value="40"></td>
+                        <td valign="middle">Slow printing speed</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="FAST_SPEED">Fast printing speed:</label></td>
+                        <td valign="middle"><input type="number" name="FAST_SPEED" id="FAST_SPEED" value="100"></td>
+                        <td valign="middle">Fast printing speed</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="MOVE_SPEED">Movement Speed:</label></td>
+                        <td valign="middle"><input type="number" name="MOVE_SPEED" id="MOVE_SPEED" value="150"></td>
+                        <td valign="middle">Movement speed</td>
+                    </tr>
+                    <!--
+                    <tr>
+                        <td valign="middle"><label for="USE_UBL">Use Bed Levelling:</label></td>
+                        <td valign="middle"><input type="checkbox" name="USE_UBL" id="USE_UBL"></td>
+                        <td valign="middle">Activate UBL and level bed before printing</td>
+                    </tr>
+                    -->
+                    <input type="hidden" name="USE_UBL" id="USE_UBL">
+                    <tr>
+                        <td valign="middle"><label for="RETRACTION">Retraction Distance:</label></td>
+                        <td valign="middle"><input type="number" name="RETRACTION" id="RETRACTION" value="1.000"></td>
+                        <td valign="middle">Retraction distance in mm</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="BEDSIZE_X">Bed size X:</label></td>
+                        <td valign="middle"><input type="number" name="BEDSIZE_X" id="BEDSIZE_X" value="200"></td>
+                        <td valign="middle">Size in mm of the bed in X</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="BEDSIZE_Y">Bed Size Y:</label></td>
+                        <td valign="middle"><input type="number" name="BEDSIZE_Y" id="BEDSIZE_Y" value="200"></td>
+                        <td valign="middle">Size in mm of the bed in Y</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="LAYER_HEIGHT">Layer Height:</label></td>
+                        <td valign="middle"><input type="number" name="LAYER_HEIGHT" id="LAYER_HEIGHT" value="0.200">
+                        </td>
+                        <td valign="middle">Layer Height in mm</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="EXTRUSION_MULT">Extrusion Multiplier:</label></td>
+                        <td valign="middle"><input type="number" name="EXTRUSION_MULT" id="EXTRUSION_MULT" value="1.0">
+                        </td>
+                        <td valign="middle">Usually 1.0</td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="PA_START">Start value for PA:</label></td>
+                        <td valign="middle"><input type="number" name="PA_START" id="PA_START" value="0"></td>
+                        <td valign="middle">Start value for the Pressure Advance. Usually 0 but for bowden setups you
+                            might want to start higher, e.g. 0.5
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="PA_END">End value for PA:</label></td>
+                        <td valign="middle"><input type="number" name="PA_END" id="PA_END" value="1.000"></td>
+                        <td valign="middle">End value of the Pressure Advance. Bowden setups may be closer to 1.000 If
+                            there is no significant improvement with a pressure advance up to 1.000, then pressure
+                            advance is unlikely to improve the quality of prints.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td valign="middle"><label for="PA_STEP">Pressure Advance Stepping:</label></td>
+                        <td valign="middle"><input type="number" name="PA_STEP" id="PA_STEP" value="0.040"></td>
+                        <td valign="middle">Stepping of the Pressure Advance in the test pattern.  The default bed size only supports 35 total steps.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <p>
+                    <input name="button" type="button" id="button" form="form1" value="Generate GCode"
+                           onClick="gengcode(this.form)">
+                </p></td>
+            <td>
+                <p>
+                    <textarea name="textarea" cols="120" rows="40" id="textarea"></textarea>
+                </p>
+                <p>
+                    <input type="button" name="button2" id="button2" value="Download as file"
+                           onClick="saveTextAsFile(this.form)">
+                </p></td>
+        </tr>
+        </tbody>
+    </table>
+</form>
+</body>
+</html>
