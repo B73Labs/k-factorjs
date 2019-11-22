@@ -78,10 +78,7 @@ function gengcode (form) {
                                                     'M190 S' + BED_TEMP + ' ; set and wait for bed temp\n' +
                                                     'M104 S' + NOZZLE_TEMP + ' ; set nozzle temp and continue\n';
 
-    if(document.getElementById('USE_UBL').checked) {
-    document.forms['form1']['textarea'].value +=    'G29 ; execute bed automatic levelling compensation\n';
-    }
-
+	var START_Y_CLEAN = (parseFloat(START_Y) + 100.0).toFixed(2);
     document.forms['form1']['textarea'].value +=    'M109 S' + NOZZLE_TEMP + ' ; block waiting for nozzle temp\n' +
                                                     'G21 ; set units to millimetres\n' +
                                                     'M204 S500 ; lower acceleration to 500mm/s2 during the test\n' +
@@ -92,7 +89,7 @@ function gengcode (form) {
                                                     ';\n' +
                                                     'G1 X20 Y' + START_Y + ' F' + SPEED_MOVE + '\n' +
                                                     'G1 Z' + HEIGHT_LAYER + ' F' + SPEED_SLOW + '\n' +
-                                                    'G1 X20 Y' + (START_Y + 100) + ' E10' + ' F' + SPEED_SLOW + ' ; extrude some to start clean\n' +
+                                                    'G1 X20 Y' + START_Y_CLEAN + ' E10' + ' F' + SPEED_SLOW + ' ; extrude some to start clean\n' +
                                                     'G1 E-' + RETRACT_DIST + '\n' +
                                                     ';\n' +
                                                     '; start the test (all values are relative coordinates)\n' +
@@ -106,7 +103,7 @@ function gengcode (form) {
 
     console.clear();
     for (i = START_PA; i <= END_PA; i = i + STEP_PA ) {
-        // console.log(i.toFixed(3));
+        console.log(i.toFixed(3));
         document.forms['form1']['textarea'].value += 'SET_PRESSURE_ADVANCE ADVANCE=' + i.toFixed(3) + ' ; set Pressure Advance\n' +
                                                      'G1 E' + RETRACT_DIST + '\n' +
                                                      'G1 X20 Y0 E' + EXT_20 + ' F' + SPEED_SLOW + '\n' +
