@@ -1,6 +1,8 @@
 # pressure-advance-js
 Script to generate a test g-code for pressure advance calibration in Klipper based on k-factorjs for Marlin LIN_ADVANCE
 
+[Live demo](https://b73labs.github.io/pressure-advance-js/pressure-advance.html)
+
 See https://github.com/KevinOConnor/klipper/blob/master/docs/Pressure_Advance.md for the latest Pressure Advance documentation
 
 This script was created by modifying k-factorjs https://github.com/Sineos/k-factorjs
